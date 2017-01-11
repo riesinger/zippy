@@ -19,25 +19,13 @@ func loadTemplates(themeDir string) {
 	logger.Info("Compiled all templates")
 }
 
-func getTemplate(path string, list bool) (*raymond.Template, error) {
+func getTemplate(name string) (*raymond.Template, error) {
 	// First, check if the given path exists directly
-	template, exists := templates[path]
+	template, exists := templates[name]
 	if exists {
 		return template, nil
 	} else {
-		// If not, check for the _single and _list versions
-		var name string
-		if list == true {
-			name = "_list"
-		} else {
-			name = "_single"
-		}
-		tmpl, exists := templates[path+"/"+name]
-		if exists == false {
-			return nil, errors.New(fmt.Sprintf("requested template %s does not exist", path))
-		}
-		return tmpl, nil
-
+		return nil, errors.New(fmt.Sprintf("requested template %s does not exist", name))
 	}
 
 }
@@ -54,8 +42,8 @@ func compileDir(dirpath, themepath string) {
 				logger.Error("Could not parse template", zap.String("file", fp), zap.Error(err))
 			} else {
 				name := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
-				relpath, _ := filepath.Rel(themepath, dirpath)
-				templates[relpath+"/"+name] = tmpl
+				templates[name] = tmpl
+				logger.Debug("Parsed template", zap.String("name", name))
 			}
 		}
 	}

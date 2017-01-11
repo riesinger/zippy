@@ -1,12 +1,17 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/arial7/zippy/api"
+	"github.com/arial7/zippy/models"
 	"github.com/aymerick/raymond"
+	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 func standardPageHandler(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +27,7 @@ func standardPageHandler(w http.ResponseWriter, r *http.Request) {
 		"title":   "Somepost",
 		"content": "Here is some content",
 	}
-	tmpl, err := getTemplate("post", false)
+	tmpl, err := getTemplate("post")
 	if err != nil {
 		logger.Error("Could not get template", zap.Error(err))
 	} else {
@@ -42,20 +47,76 @@ func adminPageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(f)
 }
 
+// - API HANDLERS -
+
+func newArticleHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("Requested api page", zap.Object("url", r.URL))
+	decoder := json.NewDecoder(r.Body)
+	var a models.Article
+	err := decoder.Decode(&a)
+	if err != nil {
+		logger.Error("Cannot decode new article", zap.Error(err))
+	}
+	defer r.Body.Close()
+
+	db.CreateArticle(&a)
+}
+
+func getArticleBySlugHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func getArticlesByPathHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func renderPage(tmpl *raymond.Template, context interface{}) ([]byte, error) {
 	// We got the template, now compile the article into it!
 	result, err := tmpl.Exec(context)
 	return []byte(result), err
 }
 
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("Requested api page", zap.Object("url", r.URL))
+}
+
+func articleHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	logger.Debug("Requested article", zap.String("action", vars["action"]),
+		zap.String("list", vars["list"]))
+
+	switch vars["action"] {
+	case "new":
+		decoder := json.NewDecoder(r.Body)
+		var a models.Article
+		err := decoder.Decode(&a)
+		if err != nil {
+			logger.Error("Cannot decode new article", zap.Error(err))
+			w.WriteHeader(500)
+			return
+		}
+		defer r.Body.Close()
+		a.CreatedAt = time.Now().UTC()
+		a.UpdatedAt = time.Now().UTC()
+
+		db.CreateArticle(&a)
+	}
+}
+
 // setupRoutes() binds the handlers to specific paths and starts the server
 func setupRoutes(themeDir string) {
+	api.SetupHandlers(db, logger)
 
+	apiRouter := mux.NewRouter()
 	staticPath, _ := filepath.Abs(filepath.Join(themeDir, "static"))
 	h := http.StripPrefix("/static/", http.FileServer(http.Dir(staticPath)))
 
+	apiRouter.PathPrefix("/article").Path("/{action}").HandlerFunc(api.ArticleHandler)
+	apiRouter.PathPrefix("/article").Path("/{action}/{collection}").HandlerFunc(api.ArticleHandler)
+
 	http.HandleFunc("/", standardPageHandler)
 	http.HandleFunc("/adm", adminPageHandler)
+	http.Handle("/api/", http.StripPrefix("/api", apiRouter))
 	http.Handle("/static/", h)
 
 	// Start the server

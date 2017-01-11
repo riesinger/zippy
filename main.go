@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/arial7/zippy/database"
 	"github.com/aymerick/raymond"
 	"github.com/gosimple/slug"
 	"github.com/russross/blackfriday"
@@ -15,6 +16,7 @@ import (
 const VERSION = "0.0.1"
 
 var logger zap.Logger
+var db *database.MgoAdapter
 
 type APIResponse struct {
 	Success   bool        `json:"success"`
@@ -117,6 +119,14 @@ func main() {
 	}
 
 	themeDir := "themes/" + viper.GetString("site.theme")
+
+	db = database.NewMgoAdapter(logger)
+	err = db.Dial(viper.GetString("database.url"), viper.GetString("database.name"))
+	if err != nil {
+		logger.Fatal("Could not connect to database", zap.Error(err))
+		os.Exit(1)
+	}
+	defer db.Close()
 
 	checkThemeExists(themeDir)
 	loadTemplates(themeDir)
