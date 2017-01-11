@@ -62,7 +62,16 @@ func (m *MgoAdapter) GetArticlesByPath(path string) ([]*models.Article, error) {
 		return nil, err
 	}
 	return as, nil
+}
 
+func (m *MgoAdapter) GetArticleByFullPath(fullPath string) (*models.Article, error) {
+	var a *models.Article
+	err := m.Articles.Find(bson.M{"fPath": fullPath}).One(&a)
+	if err != nil {
+		m.Logger.Warn("Could not get article for", zap.String("path", fullPath), zap.Error(err))
+		return nil, err
+	}
+	return a, nil
 }
 
 func (m *MgoAdapter) Close() {

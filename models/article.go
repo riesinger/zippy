@@ -8,12 +8,15 @@ type Article struct {
 	// Title is the Articles plain title, e.g. "Hello World!"
 	Title string `bson:"title" json:"title"`
 	// Path is the path relative to the domain name that points to the article.
-	// If the article would be at http://example.org/blog/posts/technology/awesome-tech.html,
+	// If the article would be at http://example.org/blog/posts/technology/hello-world,
 	// Path would be /blog/posts/technology/, Note the leading and trailing slash
 	Path string `bson:"path" json:"path"`
 	// Slug is the article's title slug (with counter). So for the title "Hello World!", the slug
 	// would be "hello-world" (or "hello-world-1"), if a post with that slug alreay exists.
-	Slug string `bson:"slug" json:slug`
+	Slug string `bson:"slug" json:"slug"`
+	// FullPath combines Path + Slug, it for the above examples, the FullPath would be
+	// "/blog/posts/technology/hello-world". It is used for actually accessing an article.
+	FullPath string `bson:"fPath" json:"fullPath"`
 	// Posts marked as draft cannot be accessed from the web
 	IsDraft bool `bson:"isDraft" json:isDraft`
 	// MarkdownBody is the actual markdown, that the article is made of
