@@ -7,14 +7,18 @@ import (
 	"github.com/uber-go/zap"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"os"
 )
 
 const ArticleCollectionName = "articles"
+const SiteConfigCollectionName = "siteconfig"
 
 type MgoAdapter struct {
-	Articles *mgo.Collection
-	Session  *mgo.Session
-	Logger   zap.Logger
+	ConfigCollection *mgo.Collection
+	SiteConfig       *models.Configuration
+	Articles         *mgo.Collection
+	Session          *mgo.Session
+	Logger           zap.Logger
 }
 
 func NewMgoAdapter(logger zap.Logger) *MgoAdapter {
@@ -30,8 +34,8 @@ func (m *MgoAdapter) Dial(url string, databaseName string) error {
 		return errors.New(fmt.Sprintf("error while dialing: %s", err))
 	} else {
 		m.Session = session
-		c := session.DB(databaseName).C(ArticleCollectionName)
-		m.Articles = c
+		m.Articles = session.DB(databaseName).C(ArticleCollectionName)
+		m.ConfigCollection = session.DB(databaseName).C(SiteConfigCollectionName)
 		return nil
 	}
 }
@@ -72,6 +76,20 @@ func (m *MgoAdapter) GetArticleByFullPath(fullPath string) (*models.Article, err
 		return nil, err
 	}
 	return a, nil
+}
+
+func (m *MgoAdapter) GetSiteConfig() *models.Configuration {
+	if m.SiteConfig == nil {
+		err := m.ConfigCollection.Find(nil).One(&m.SiteConfig)
+		if err == mgo.ErrNotFound {
+			m.Logger.Info("There is no site config, please visit /setup")
+			m.SiteConfig = &models.Configuration{IsSetup: false}
+		} else if err != nil {
+			m.Logger.Fatal("Could not retrive site config", zap.Error(err))
+			os.Exit(1)
+		}
+	}
+	return m.SiteConfig
 }
 
 func (m *MgoAdapter) Close() {

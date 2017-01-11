@@ -40,11 +40,25 @@ func standardPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func adminPageHandler(w http.ResponseWriter, r *http.Request) {
+	if isSetup == false {
+		http.Redirect(w, r, "/setup", 303)
+	}
 	// TODO: We should really use the themeDir here!
 	// TODO: The editor should also be a HBS template with some variables
-	f, _ := ioutil.ReadFile(filepath.Join("themes", viper.GetString("site.theme"),
+	f, _ := ioutil.ReadFile(filepath.Join("themes", db.GetSiteConfig().ThemeName,
 		"admin", "editor.html"))
 	w.Write(f)
+}
+
+func setupPageHandler(w http.ResponseWriter, r *http.Request) {
+	if isSetup == true {
+		http.Redirect(w, r, "/", 303)
+	}
+	// TODO: Be more intelligent about assuming the default theme for setup
+	f, _ := ioutil.ReadFile(filepath.Join("themes", "default",
+		"admin", "setup.html"))
+	w.Write(f)
+
 }
 
 func renderPage(tmpl *raymond.Template, context interface{}) ([]byte, error) {
@@ -55,6 +69,12 @@ func renderPage(tmpl *raymond.Template, context interface{}) ([]byte, error) {
 
 // setupRoutes() binds the handlers to specific paths and starts the server
 func setupRoutes(themeDir string) {
+
+	// This is used for the initial setup
+	if themeDir == "" {
+		themeDir = "themes/default"
+	}
+
 	api.SetupHandlers(db, logger)
 
 	apiRouter := mux.NewRouter()
@@ -66,6 +86,7 @@ func setupRoutes(themeDir string) {
 
 	http.HandleFunc("/", standardPageHandler)
 	http.HandleFunc("/adm", adminPageHandler)
+	http.HandleFunc("/setup", setupPageHandler)
 	http.Handle("/api/", http.StripPrefix("/api", apiRouter))
 	http.Handle("/static/", h)
 

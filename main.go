@@ -15,6 +15,8 @@ import (
 
 const VERSION = "0.0.1"
 
+var isSetup bool
+
 var logger zap.Logger
 var db *database.MgoAdapter
 
@@ -118,8 +120,6 @@ func main() {
 		logger.SetLevel(zap.InfoLevel)
 	}
 
-	themeDir := "themes/" + viper.GetString("site.theme")
-
 	db = database.NewMgoAdapter(logger)
 	err = db.Dial(viper.GetString("database.url"), viper.GetString("database.name"))
 	if err != nil {
@@ -128,10 +128,17 @@ func main() {
 	}
 	defer db.Close()
 
-	checkThemeExists(themeDir)
-	loadTemplates(themeDir)
+	isSetup = db.GetSiteConfig().IsSetup
 
-	setupRoutes(themeDir)
+	if isSetup {
+		themeDir := "themes/" + db.GetSiteConfig().ThemeName
+		checkThemeExists(themeDir)
+		loadTemplates(themeDir)
+		setupRoutes(themeDir)
+	} else {
+		setupRoutes("")
+	}
+
 }
 
 func checkThemeExists(path string) {
