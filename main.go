@@ -3,13 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-
 	"github.com/aymerick/raymond"
 	"github.com/gosimple/slug"
 	"github.com/russross/blackfriday"
+	"github.com/spf13/viper"
+	"github.com/uber-go/zap"
+	"net/http"
+	"os"
 )
+
+const VERSION = "0.0.1"
+
+var logger zap.Logger
 
 type APIResponse struct {
 	Success   bool        `json:"success"`
@@ -83,26 +88,48 @@ var articles []Article
 var postTemplate *raymond.Template
 
 func main() {
-	// Load the "post" handlebar remplate and compile it
-	tmpl, err := ioutil.ReadFile("static/templates/post.hbs")
+	// TODO: Remove this at least in 1.0.0, as it is only used to enable debugging
+	viper.SetDefault("environment", "development")
+
+	viper.SetConfigName("config")
+	viper.AddConfigPath("/etc/viper")
+	viper.AddConfigPath(".")
+
+	// Load the actual config file
+	err := viper.ReadInConfig()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Fatal error while reading config: %s\n", err))
 	}
 
-	postTemplate, err = raymond.Parse(string(tmpl))
-	if err != nil {
-		panic(err)
+	// Setup logging
+	if viper.GetString("environment") == "development" {
+		logger = zap.New(zap.NewTextEncoder(), zap.Output(os.Stdout))
+		logger.SetLevel(zap.DebugLevel)
+	} else {
+		logfile, err := os.OpenFile(viper.GetString("server.logDir")+"/log",
+			os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+		if err != nil {
+			panic(fmt.Errorf("Failed to create logfile: %s\n", err))
+		}
+		defer logfile.Close()
+		logger = zap.New(zap.NewTextEncoder(), zap.Output(logfile))
+		logger.SetLevel(zap.InfoLevel)
 	}
 
-	// API routes
-	http.HandleFunc("/api/saveArticle", saveArticle)
+	themeDir := "themes/" + viper.GetString("site.theme")
 
-	// Actual blog routes
-	http.HandleFunc("/posts", renderPost)
+	checkThemeExists(themeDir)
+	loadTemplates(themeDir)
 
-	// Static files
-	http.Handle("/", http.FileServer(http.Dir("static")))
-	http.Handle("/js", http.FileServer(http.Dir("static/js")))
-	http.Handle("/css", http.FileServer(http.Dir("static/css")))
-	http.ListenAndServe(":8080", nil)
+	setupRoutes(themeDir)
+}
+
+func checkThemeExists(path string) {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		logger.Fatal("Requested theme does not exist", zap.String("directory", path))
+		os.Exit(1)
+	} else if err != nil {
+		logger.Error("Could not check for theme", zap.String("directory", path), zap.Error(err))
+	}
 }

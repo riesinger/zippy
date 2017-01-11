@@ -1,0 +1,14 @@
+[site]
+name = "My awesome Site!"
+baseUrl = "https://example.org"
+theme = "default"
+
+[server]
+port = "8080"
+logDir = "/var/log/zippy"
+
+# You generally don't need to edit those
+[database]
+url = "localhost"
+name = "zippy-testing"
+
