@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/arial7/zippy/models"
+	"github.com/arial7/zippy/utils"
 	"github.com/uber-go/zap"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -12,10 +13,12 @@ import (
 
 const ArticleCollectionName = "articles"
 const SiteConfigCollectionName = "siteconfig"
+const UserCollectionName = "users"
 
 type MgoAdapter struct {
 	ConfigCollection *mgo.Collection
 	SiteConfig       *models.Configuration
+	Users            *mgo.Collection
 	Articles         *mgo.Collection
 	Session          *mgo.Session
 	Logger           zap.Logger
@@ -36,6 +39,7 @@ func (m *MgoAdapter) Dial(url string, databaseName string) error {
 		m.Session = session
 		m.Articles = session.DB(databaseName).C(ArticleCollectionName)
 		m.ConfigCollection = session.DB(databaseName).C(SiteConfigCollectionName)
+		m.Users = session.DB(databaseName).C(UserCollectionName)
 		return nil
 	}
 }
@@ -94,12 +98,70 @@ func (m *MgoAdapter) GetSiteConfig() *models.Configuration {
 }
 
 func (m *MgoAdapter) SetInitialSiteConfig(data *models.SignupData) error {
-	if m.SiteConfig != nil {
-		m.Logger.Fatal("Tried to set initial config data when already configured")
+	m.Logger.Debug("Setting initial site config")
+
+	if m.SiteConfig.IsSetup == true {
+		m.Logger.Error("Tried to set initial config data when already configured")
 		return errors.New("set initial config when already configured")
 	}
 
+	newConfig := &models.Configuration{
+		SiteName:  data.SiteName,
+		ThemeName: data.Theme,
+		BaseURL:   data.BaseURL,
+		IsSetup:   true,
+	}
+
+	err := m.ConfigCollection.Insert(newConfig)
+	if err != nil {
+		m.Logger.Error("Could not update site config", zap.Error(err))
+		return err
+	}
+
+	m.SiteConfig = newConfig
+
 	return nil
+}
+
+func (m *MgoAdapter) CreateOwnerUser(data *models.SignupData) error {
+	m.Logger.Debug("Creating owner user")
+	// First, look for an existing owner user
+	var dummy models.User
+	err := m.Users.Find(bson.M{"role": 0}).One(&dummy)
+	if err != mgo.ErrNotFound {
+		m.Logger.Error("Tried to create owner user", zap.Error(err))
+		return errors.New("creating a second owner user is illegal")
+	}
+
+	// There is no owner user, so go on with encrypting the password
+	user := models.User{
+		FullName: data.AccountName,
+		Email:    data.AccountMail,
+		UID:      utils.NewUUID(),
+		Role:     models.UserRoleOwner,
+	}
+
+	hashedPassword, salt, err := utils.HashWithNewSalt(data.AccountPassword)
+
+	if err != nil {
+		m.Logger.Error("Could not hash password", zap.Error(err))
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = hashedPassword
+	user.Salt = salt
+
+	err = m.Users.Insert(&user)
+
+	if err != nil {
+		m.Logger.Error("Could not save owner user", zap.Error(err))
+		return errors.New("failed to save owner")
+	}
+
+	m.Logger.Debug("Created owner")
+
+	return nil
+
 }
 
 func (m *MgoAdapter) Close() {

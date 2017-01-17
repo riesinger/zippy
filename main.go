@@ -130,6 +130,8 @@ func main() {
 
 	isSetup = db.GetSiteConfig().IsSetup
 
+	// TODO: make it possible to dynamically change the theme
+
 	if isSetup {
 		themeDir := "themes/" + db.GetSiteConfig().ThemeName
 		checkThemeExists(themeDir)

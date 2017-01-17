@@ -51,21 +51,24 @@ func SetupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.SetSiteConfig(&signupData)
+	err = db.SetInitialSiteConfig(&signupData)
 	if err != nil {
 		logger.Error("Cannot setup site config data", zap.Error(err))
+		w.Write(ErrorResponse("Internal server error", ErrInitialConfig).Marshal())
 		w.WriteHeader(500)
 		return
 	}
 
-	err = db.CreateAdminUser(&signupData)
+	err = db.CreateOwnerUser(&signupData)
 	if err != nil {
 		logger.Error("Cannot create admin user", zap.Error(err))
+		w.Write(ErrorResponse("Internal server error", ErrCreateOwner).Marshal())
 		w.WriteHeader(500)
 		return
 	}
 
-	http.Redirect(w, r, "/adm", 303)
+	w.Write(SuccessResponse().Marshal())
+
 }
 
 func ArticleHandler(w http.ResponseWriter, r *http.Request) {

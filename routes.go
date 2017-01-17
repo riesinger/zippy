@@ -46,7 +46,7 @@ func adminPageHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: We should really use the themeDir here!
 	// TODO: The editor should also be a HBS template with some variables
 	f, _ := ioutil.ReadFile(filepath.Join("themes", db.GetSiteConfig().ThemeName,
-		"admin", "editor.html"))
+		"admin", "login.html"))
 	w.Write(f)
 }
 
@@ -83,7 +83,7 @@ func setupRoutes(themeDir string) {
 
 	apiRouter.PathPrefix("/article").Path("/{action}").HandlerFunc(api.ArticleHandler)
 	apiRouter.PathPrefix("/article").Path("/{action}/{collection}").HandlerFunc(api.ArticleHandler)
-	apiRouter.HandleFunc("/setup", api.SetupHandler)
+	apiRouter.HandleFunc("/initialSetup", api.SetupHandler)
 
 	http.HandleFunc("/", standardPageHandler)
 	http.HandleFunc("/adm/", adminPageHandler)
