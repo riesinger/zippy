@@ -40,12 +40,13 @@ func (m *MgoAdapter) Dial(url string, databaseName string) error {
 	}
 }
 
-func (m *MgoAdapter) CreateArticle(article *models.Article) {
+func (m *MgoAdapter) CreateArticle(article *models.Article) error {
 	m.Logger.Debug("Creating new article", zap.String("title", article.Title))
 	err := m.Articles.Insert(article)
 	if err != nil {
 		m.Logger.Error("Could not create article", zap.Error(err))
 	}
+	return err
 }
 
 func (m *MgoAdapter) GetArticleBySlug(slug string) (*models.Article, error) {
@@ -90,6 +91,15 @@ func (m *MgoAdapter) GetSiteConfig() *models.Configuration {
 		}
 	}
 	return m.SiteConfig
+}
+
+func (m *MgoAdapter) SetInitialSiteConfig(data *models.SignupData) error {
+	if m.SiteConfig != nil {
+		m.Logger.Fatal("Tried to set initial config data when already configured")
+		return errors.New("set initial config when already configured")
+	}
+
+	return nil
 }
 
 func (m *MgoAdapter) Close() {

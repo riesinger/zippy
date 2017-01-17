@@ -83,9 +83,10 @@ func setupRoutes(themeDir string) {
 
 	apiRouter.PathPrefix("/article").Path("/{action}").HandlerFunc(api.ArticleHandler)
 	apiRouter.PathPrefix("/article").Path("/{action}/{collection}").HandlerFunc(api.ArticleHandler)
+	apiRouter.HandleFunc("/setup", api.SetupHandler)
 
 	http.HandleFunc("/", standardPageHandler)
-	http.HandleFunc("/adm", adminPageHandler)
+	http.HandleFunc("/adm/", adminPageHandler)
 	http.HandleFunc("/setup", setupPageHandler)
 	http.Handle("/api/", http.StripPrefix("/api", apiRouter))
 	http.Handle("/static/", h)

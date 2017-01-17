@@ -35,6 +35,39 @@ func unmarshalArticle(body io.ReadCloser) (*models.Article, error) {
 
 }
 
+func SetupHandler(w http.ResponseWriter, r *http.Request) {
+	if db.GetSiteConfig().IsSetup {
+		w.WriteHeader(400)
+		return
+	}
+
+	var signupData models.SignupData
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&signupData)
+	defer r.Body.Close()
+	if err != nil {
+		logger.Error("Cannot decode signup data", zap.Error(err))
+		w.WriteHeader(500)
+		return
+	}
+
+	err = db.SetSiteConfig(&signupData)
+	if err != nil {
+		logger.Error("Cannot setup site config data", zap.Error(err))
+		w.WriteHeader(500)
+		return
+	}
+
+	err = db.CreateAdminUser(&signupData)
+	if err != nil {
+		logger.Error("Cannot create admin user", zap.Error(err))
+		w.WriteHeader(500)
+		return
+	}
+
+	http.Redirect(w, r, "/adm", 303)
+}
+
 func ArticleHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	action := vars["action"]
