@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	scryptN    = 1048576
+	scryptN    = 16384
 	scryptR    = 8
 	scryptP    = 1
 	passLength = 32

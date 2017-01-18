@@ -3,6 +3,7 @@ package api
 // General errors
 const ErrInternal int32 = 500
 const ErrInitialConfig int32 = 980
+const ErrSignupData int32 = 981
 
 // Article errors
 const ErrUnmarshalArticle int32 = 1001

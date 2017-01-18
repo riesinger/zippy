@@ -1,14 +1,15 @@
 package main
 
 import (
+	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/arial7/zippy/api"
 	"github.com/aymerick/raymond"
-	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
 	"gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
@@ -77,18 +78,34 @@ func setupRoutes(themeDir string) {
 
 	api.SetupHandlers(db, logger)
 
-	apiRouter := mux.NewRouter()
+	apiApp := rest.NewApi()
+
+	if viper.GetString("environment") == "development" {
+		apiApp.Use(rest.DefaultDevStack...)
+	} else {
+		apiApp.Use(rest.DefaultProdStack...)
+	}
+
+	apiRouter, err := rest.MakeRouter(
+		rest.Get("/article/#slug", api.GetArticleHandler),
+		rest.Post("/article/new", api.CreateArticleHandler),
+		rest.Post("/initialSetup", api.SetupHandler),
+	)
+
+	if err != nil {
+		logger.Fatal("Could not setup API router", zap.Error(err))
+		os.Exit(1)
+	}
+
+	apiApp.SetApp(apiRouter)
+
 	staticPath, _ := filepath.Abs(filepath.Join(themeDir, "static"))
 	h := http.StripPrefix("/static/", http.FileServer(http.Dir(staticPath)))
-
-	apiRouter.PathPrefix("/article").Path("/{action}").HandlerFunc(api.ArticleHandler)
-	apiRouter.PathPrefix("/article").Path("/{action}/{collection}").HandlerFunc(api.ArticleHandler)
-	apiRouter.HandleFunc("/initialSetup", api.SetupHandler)
 
 	http.HandleFunc("/", standardPageHandler)
 	http.HandleFunc("/adm/", adminPageHandler)
 	http.HandleFunc("/setup", setupPageHandler)
-	http.Handle("/api/", http.StripPrefix("/api", apiRouter))
+	http.Handle("/api/", http.StripPrefix("/api", apiApp.MakeHandler()))
 	http.Handle("/static/", h)
 
 	// Start the server
